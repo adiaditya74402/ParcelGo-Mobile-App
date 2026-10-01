@@ -2,13 +2,14 @@ import React from 'react';
 import {
   Image,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Redirect } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/providers/auth-provider';
@@ -16,6 +17,7 @@ import { useAuth } from '@/providers/auth-provider';
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { session, profile, isLoading, isProfileLoading } = useAuth();
 
   if (!isLoading && session && !isProfileLoading && !profile) {
@@ -57,7 +59,7 @@ export default function HomeScreen() {
         <Text style={[styles.greetingCopy, { color: colors.mutedForeground }]}>
           {isCourier
             ? 'Your courier profile is ready. You’ll see nearby delivery requests in the next step.'
-            : 'Your sender profile is ready. You’ll be able to arrange a local delivery in the next step.'}
+            : 'Your sender profile is ready. Create a parcel request and choose where it needs to go.'}
         </Text>
       </View>
 
@@ -80,7 +82,7 @@ export default function HomeScreen() {
         <Text style={styles.cardCopy}>
           {isCourier
             ? 'Next: set your availability and discover parcels picked up near you.'
-            : 'Next: add pickup and drop-off points to create your first parcel request.'}
+            : 'Add pickup, destination, parcel details, and your offer.'}
         </Text>
         <View style={styles.cardBottom}>
           <View style={styles.cardRule} />
@@ -89,9 +91,34 @@ export default function HomeScreen() {
         <View style={styles.decorCircle} />
       </View>
 
+      {!isCourier ? (
+        <Pressable
+          accessibilityRole="button"
+          testID="home-create-parcel"
+          onPress={() => router.push('/create-order')}
+          style={({ pressed }) => [
+            styles.createButton,
+            { backgroundColor: colors.primary, opacity: pressed ? 0.86 : 1 },
+          ]}
+        >
+          <View style={[styles.createButtonIcon, { backgroundColor: colors.primaryForeground }]}>
+            <Feather name="plus" size={18} color={colors.primary} />
+          </View>
+          <View style={styles.createButtonCopy}>
+            <Text style={[styles.createButtonTitle, { color: colors.primaryForeground }]}>
+              Add a parcel
+            </Text>
+            <Text style={[styles.createButtonSubTitle, { color: colors.primaryForeground }]}>
+              Set pickup, drop-off and delivery details
+            </Text>
+          </View>
+          <Feather name="arrow-up-right" size={19} color={colors.primaryForeground} />
+        </Pressable>
+      ) : null}
+
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Your account</Text>
-        <Text style={[styles.sectionTag, { color: colors.mutedForeground }]}>01 / 04</Text>
+        <Text style={[styles.sectionTag, { color: colors.mutedForeground }]}>02 / 04</Text>
       </View>
       <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {[
@@ -99,8 +126,17 @@ export default function HomeScreen() {
           { label: 'Role selected', icon: isCourier ? 'navigation' as const : 'package' as const, complete: true },
           { label: isCourier ? 'Go online' : 'Add a parcel', icon: 'circle' as const, complete: false },
           { label: 'Complete a delivery', icon: 'circle' as const, complete: false },
-        ].map((item, index) => (
-          <View key={item.label} style={styles.progressRow}>
+        ].map((item, index) => {
+          const canCreateParcel = !isCourier && item.label === 'Add a parcel';
+          return (
+          <Pressable
+            key={item.label}
+            accessibilityRole={canCreateParcel ? 'button' : undefined}
+            testID={canCreateParcel ? 'home-progress-add-parcel' : undefined}
+            disabled={!canCreateParcel}
+            onPress={() => router.push('/create-order')}
+            style={({ pressed }) => [styles.progressRow, { opacity: pressed ? 0.7 : 1 }]}
+          >
             <View
               style={[
                 styles.progressIcon,
@@ -130,8 +166,9 @@ export default function HomeScreen() {
             {index < 3 ? (
               <View style={[styles.connector, { backgroundColor: colors.border }]} />
             ) : null}
-          </View>
-        ))}
+          </Pressable>
+          );
+        })}
       </View>
 
       <View style={[styles.tip, { backgroundColor: colors.accent }]}>
@@ -168,6 +205,11 @@ const styles = StyleSheet.create({
   cardRule: { width: 18, height: 2, borderRadius: 2, backgroundColor: '#E9A363' },
   cardFoot: { color: '#D5E3D8', fontSize: 8, letterSpacing: 1.1, fontFamily: 'Inter_600SemiBold' },
   decorCircle: { position: 'absolute', width: 150, height: 150, borderRadius: 90, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', right: -69, top: 32 },
+  createButton: { minHeight: 70, borderRadius: 17, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  createButtonIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  createButtonCopy: { flex: 1, gap: 4 },
+  createButtonTitle: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  createButtonSubTitle: { fontSize: 10, opacity: 0.82, fontFamily: 'Inter_500Medium' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   sectionTitle: { fontSize: 15, fontFamily: 'Inter_700Bold' },
   sectionTag: { fontSize: 9, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8 },
