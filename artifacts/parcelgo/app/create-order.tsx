@@ -9,7 +9,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { Feather } from '@expo/vector-icons';
@@ -57,6 +56,17 @@ function friendlySaveError(error: unknown) {
     return 'Parcel photo storage is not set up yet. Run supabase/migrations/0002_parcel_orders.sql in your Supabase SQL Editor.';
   }
   return message;
+}
+
+async function readPhotoBytes(uri: string): Promise<ArrayBuffer> {
+  if (Platform.OS === 'web') {
+    const response = await fetch(uri);
+    if (!response.ok) throw new Error('Could not read the selected photo.');
+    return response.arrayBuffer();
+  }
+
+  const { File } = await import('expo-file-system');
+  return new File(uri).arrayBuffer();
 }
 
 function PlaceSearchField({
@@ -447,7 +457,7 @@ export default function CreateOrderScreen() {
         const mimeType = photo.mimeType || 'image/jpeg';
         const extension = mimeType.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'jpg';
         const path = `${session.user.id}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
-        const bytes = await new File(photo.uri).arrayBuffer();
+        const bytes = await readPhotoBytes(photo.uri);
         const { data: upload, error: uploadError } = await supabase.storage
           .from('parcel-photos')
           .upload(path, bytes, { contentType: mimeType, upsert: false });
