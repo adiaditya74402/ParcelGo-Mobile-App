@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "ParcelGo"
+description = "A peer-to-peer parcel delivery app that connects senders with nearby couriers. Users can register as a sender or courier, list deliveries, accept nearby jobs, and track parcels in real time."
+version = "1.0.0"
+id = "artifacts/parcelgo"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 24655
+
+[services.development]
+run = "pnpm --filter @workspace/parcelgo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/parcelgo", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/parcelgo", "run", "serve" ]
+
+[services.env]
+PORT = "24655"
+BASE_PATH = "/"

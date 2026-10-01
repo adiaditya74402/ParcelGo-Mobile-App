@@ -1,0 +1,1 @@
+- [Package installs in the monorepo](package-installs.md) — target nested app packages with `pnpm --filter` when the package callback tries to add at the workspace root.
