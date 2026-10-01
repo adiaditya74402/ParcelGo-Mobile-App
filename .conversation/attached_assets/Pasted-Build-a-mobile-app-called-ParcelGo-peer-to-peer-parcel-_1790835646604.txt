@@ -1,0 +1,62 @@
+Build a mobile app called "ParcelGo" (peer-to-peer parcel delivery) using Expo (React Native) with Expo Router and TypeScript. Use Supabase for auth, Postgres with PostGIS, Realtime, and Storage. Ask me for the Supabase URL and anon key as secrets.
+
+## Concept
+Users can list a parcel with a pickup location and a destination. Nearby online delivery people get a push notification and can accept and deliver it. One app, two roles: Sender and Courier. The user picks a role at signup and can switch later in Profile.
+
+## Auth
+- Email + password signup/login via Supabase Auth.
+- Profile fields: name, phone, role (sender/courier), expo_push_token.
+- Register for push notifications after login and save the Expo push token to the profile.
+
+## Maps (Google Maps, cost-optimized)
+- Use react-native-maps with PROVIDER_GOOGLE on both Android and iOS.
+- Ask me for the Google Maps API key as a secret (EXPO_PUBLIC_GOOGLE_MAPS_API_KEY). Configure it in app.json under android.config.googleMaps.apiKey and ios.config.googleMapsApiKey.
+- Address search: use Google Places Autocomplete (Places API New) with these cost rules:
+  1. Use session tokens, one token per search session, and end the session by calling Place Details with only the fields needed (location and formatted address).
+  2. Debounce input by 400 ms and require at least 3 characters before searching.
+  3. Cache recent results in memory.
+  4. Restrict results to India with a country filter (make the country configurable).
+- Also offer map pin-drop selection and "use current location" (reverse geocode only when the user confirms a pin, not on every map move).
+- Do NOT call the Directions API. For navigation, add a "Navigate" button that opens the Google Maps app using a deep link (https://www.google.com/maps/dir/?api=1&origin=...&destination=...).
+- Show the courier's live location as a marker on the map, updated through Supabase Realtime (this is free Maps SDK usage).
+- Add a README section explaining how to create the Google API key, restrict it to the app (package name and SHA-1 for Android, bundle ID for iOS), enable only "Maps SDK for Android", "Maps SDK for iOS" and "Places API (New)", and set a billing budget alert and daily quota caps in Google Cloud Console.
+
+## Sender features
+1. Create Order screen: title, description, photo (expo-image-picker, upload to Supabase Storage), package size (small/medium/large), offered price, pickup location and destination (Places search or map pin).
+2. My Orders list with status badges: pending, accepted, picked_up, delivered, cancelled.
+3. Order Detail: when accepted, show courier name and phone, a live courier marker on the map, and a 4-digit delivery OTP to share with the receiver.
+4. Cancel order (only while pending).
+
+## Courier features
+1. Online/Offline toggle. While online, update location with expo-location every ~15 seconds into courier_status (foreground only for now).
+2. Nearby Orders screen: realtime list of pending orders within 3 km of the courier, showing distance, price, and pickup and destination on a map.
+3. When a new order is created, send a push notification via the Expo Push API to all online couriers within 3 km of the pickup point. Tapping the notification opens that order.
+4. Accept button: must be atomic so only one courier gets it:
+   update orders set courier_id = :me, status = 'accepted' where id = :id and status = 'pending' returning *;
+   If no row is returned, show "Order already taken".
+5. Active Delivery screen: buttons "Picked up" and "Delivered". Delivered requires entering the sender's OTP. A "Navigate" button opens the Google Maps app (deep link, no API call).
+6. Earnings/History screen listing completed deliveries.
+
+## Database (PostGIS enabled)
+- profiles(id uuid pk references auth.users, name, phone, role, expo_push_token, created_at)
+- courier_status(courier_id pk, is_online bool, location geography(Point,4326), updated_at)
+- orders(id uuid pk, sender_id, courier_id nullable, title, description, photo_url, size, price numeric, pickup geography(Point), pickup_address, destination geography(Point), destination_address, status text, otp text, created_at, updated_at)
+- Add a GiST index on courier_status.location and orders.pickup.
+- Add a SQL function nearby_orders(courier_lat, courier_lng, radius_m) using ST_DWithin.
+- Add a Supabase Edge Function notify_nearby_couriers triggered after an order insert (database webhook) that finds online couriers within 3 km and sends push notifications.
+- Row Level Security: senders see only their orders. Couriers see pending orders nearby plus orders assigned to them. Users can edit only their own profile.
+- Provide all SQL migrations in a /supabase folder and tell me how to run them.
+
+## UI/UX
+- Clean, modern design with a bottom tab navigator (Sender: Home, New Order, Orders, Profile; Courier: Nearby, Active, History, Profile).
+- Loading, empty, and error states on every screen.
+- Request location and notification permissions with a clear explanation.
+
+## Technical notes
+- Use react-native-maps, expo-location, expo-notifications, expo-image-picker, and @supabase/supabase-js.
+- Remote push notifications and Google Maps require a development build, not Expo Go, so add an eas.json with a development profile and README steps for `eas build --profile development`.
+- Keep the code organized: /app (routes), /components, /lib (supabase client, places helper, helpers), /hooks, /types.
+- Include a README with setup steps (Supabase setup, Google Maps key setup, env vars, running the app, testing the push flow with two accounts/devices).
+
+## Build order
+Build in this order and let me test after each step: 1) auth and roles, 2) create order with Google Maps and Places search, 3) courier online toggle and location, 4) nearby query and push notifications, 5) accept flow, 6) live tracking and OTP delivery confirmation.
